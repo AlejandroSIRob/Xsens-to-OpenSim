@@ -20,8 +20,11 @@ sensor_mapping = {
     '10B414FE': 'humerus_l_imu',    # "Bíceps" (Brazo superior izquierdo) 
     '10B414FF': 'radius_l_imu',     # "Muñeca izquierda" (Antebrazo izquierdo)
 
+    # MANO DERECHA:
+    '10B41515': 'hand_r_imu',       # Mano Derecha (Antes Torso)
+    
     # CABEZA
-    '10B41515': 'cranial_imu',       # Cabeza 
+    #'10B41515': 'cranial_imu',       # Cabeza 
 
     # --- NUEVO: MANOS (Usando los sensores de Torso y Cabeza) ---
     # IMPORTANTE: Verifica qué ID tienes en qué mano. 
