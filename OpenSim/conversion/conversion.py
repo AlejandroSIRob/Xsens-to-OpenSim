@@ -4,8 +4,24 @@ from scipy.spatial.transform import Rotation as R
 import os
 import glob
 
+# =========================================================
+# 1.CONFIGURACIÓN DE RUTAS (EDITAR AQUÍ)
+# =========================================================
+
+# 1. ¿DÓNDE ESTÁN LOS ARCHIVOS DE TEXTO? (Entrada)
+# Usa "." para la carpeta actual donde esté el script, o pon la ruta completa.
+input_folder = r"C:\Users\alexs\Desktop\MUESTRAS\V1\XSENS" 
+
+# 2. ¿DÓNDE QUIERES GUARDAR EL RESULTADO? (Salida)
+# Si la carpeta no existe, el script la creará.
+output_folder = r"C:\Users\alexs\Desktop\MUESTRAS\V1\PROCESADO"
+output_filename = 'cinematica_v1.sto'
+
+# Frecuencia de muestreo (Xsens suele ser 60Hz o 100Hz)
+TARGET_FREQ = 60.0
+
 # ---------------------------------------------------------
-# 1. MAPEO DE SENSORES (IDs -> Nombres OpenSim)
+# 2. MAPEO DE SENSORES (IDs -> Nombres OpenSim)
 # ---------------------------------------------------------
 sensor_mapping = {
     # TREN INFERIOR / TRONCO
@@ -33,22 +49,13 @@ sensor_mapping = {
     #'10B41515': 'hand_l_imu',       # Mano Izquierda (Antes Cabeza)
     }
 
-# Nombre del archivo de salida
-output_filename = 'xsens_converted_data.sto'
-
-# Frecuencia de muestreo (Ajustar si es diferente, ej: 60Hz, 100Hz)
-TARGET_FREQ = 60.0 
 
 # ---------------------------------------------------------
-# 2. FUNCIÓN DE PROCESAMIENTO
+# 3. FUNCIÓN DE PROCESAMIENTO
 # ---------------------------------------------------------
 def process_xsens_files():
-    # Buscar todos los archivos .txt en la carpeta actual
-    # Defines la carpeta (nota la 'r' antes de las comillas para rutas de Windows)
-    carpeta = r"C:\Users\alexs\Desktop\MUESTRAS\V1\XSENS"
-
     # Unes la carpeta con el nombre del archivo
-    patron = os.path.join(carpeta, "MT_*.txt")
+    patron = os.path.join(input_folder, "MT_*.txt")
 
     # Buscas los archivos
     files = glob.glob(patron)
@@ -143,31 +150,33 @@ def process_xsens_files():
             # Unir tolerando pequeñas diferencias de tiempo
             merged_data = pd.merge_asof(merged_data, df_col, left_index=True, right_index=True, tolerance=0.02, direction='nearest')
 
-    # ---------------------------------------------------------
-    # 3. GUARDAR ARCHIVO .STO
-    # ---------------------------------------------------------
+    # =========================================================
+    # 4. GUARDADO (CORREGIDO)
+    # =========================================================
     if not merged_data.empty:
-        with open(output_filename, 'w') as f:
-            # Cabecera estándar OpenSim
+        # A. Crear carpeta si no existe
+        if not os.path.exists(output_folder):
+            print(f"Creando carpeta: {output_folder}")
+            os.makedirs(output_folder)
+            
+        # B. Construir ruta completa
+        full_path = os.path.join(output_folder, output_filename)
+        
+        # C. Escribir
+        with open(full_path, 'w') as f:
             f.write("DataRate=60.000000\n")
             f.write("DataType=Quaternion\n")
             f.write("version=3\n")
             f.write("OpenSimVersion=4.4\n")
             f.write("endheader\n")
+            f.write("time\t" + "\t".join(merged_data.columns) + "\n")
             
-            # Encabezados de columnas (time + sensores)
-            header = "time\t" + "\t".join(merged_data.columns) + "\n"
-            f.write(header)
-            
-            # Datos
             for t, row in merged_data.iterrows():
-                line = f"{t:.4f}\t" + "\t".join(row.values) + "\n"
-                f.write(line)
+                f.write(f"{t:.4f}\t" + "\t".join(row.values) + "\n")
                 
-        print(f"\n¡ÉXITO! Archivo guardado como: {output_filename}")
-        print("Copia este archivo en tu carpeta de OpenSim/OpenSense.")
+        print(f"\n[OK] Generado: {full_path}")
     else:
-        print("No se pudieron procesar datos.")
+        print("\n[ERROR] No se generaron datos.")
 
 # Ejecutar el script
 if __name__ == "__main__":
