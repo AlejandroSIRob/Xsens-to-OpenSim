@@ -14,7 +14,7 @@ input_folder = r"C:\Users\alexs\Desktop\MUESTRAS\V1\XSENS"
 
 # 2. ¿DÓNDE QUIERES GUARDAR EL RESULTADO? (Salida)
 # Si la carpeta no existe, el script la creará.
-output_folder = r"C:\Users\alexs\Desktop\MUESTRAS\V1\PROCESADO"
+output_folder = r"C:\Users\alexs\Desktop\MUESTRAS\V1\PROCESADO-Xsens"
 output_filename = 'cinematica_v1.sto'
 
 # Frecuencia de muestreo (Xsens suele ser 60Hz o 100Hz)
