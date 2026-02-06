@@ -10,7 +10,7 @@ import glob
 sensor_mapping = {
     # TREN INFERIOR / TRONCO
     '10B41517': 'pelvis_imu',       # Pelvis
-    '10B4151A': 'torso_imu',             # TREN SUPERIOR DERECHO
+    '10B4151A': 'torso_imu',        # Torso 
 
     # TREN SUPERIOR DERECHO
     '10B4151C': 'humerus_r_imu',    # "Bíceps" (Brazo superior derecho)
@@ -21,7 +21,7 @@ sensor_mapping = {
     '10B414FF': 'radius_l_imu',     # "Muñeca izquierda" (Antebrazo izquierdo)
 
     # MANO DERECHA:
-    '10B41515': 'hand_r_imu',       # Mano Derecha (Antes Torso)
+    '10B41515': 'hand_r_imu',       # Mano Derecha 
     
     # CABEZA
     #'10B41515': 'cranial_imu',       # Cabeza 
@@ -44,9 +44,8 @@ TARGET_FREQ = 60.0
 # ---------------------------------------------------------
 def process_xsens_files():
     # Buscar todos los archivos .txt en la carpeta actual
-    #files = glob.glob("MT_*.txt")
     # Defines la carpeta (nota la 'r' antes de las comillas para rutas de Windows)
-    carpeta = r"C:\Users\alexs\Desktop\Pruebas-Xsen\Sin-Manos"
+    carpeta = r"C:\Users\alexs\Desktop\MUESTRAS\V1\XSENS"
 
     # Unes la carpeta con el nombre del archivo
     patron = os.path.join(carpeta, "MT_*.txt")
