@@ -9,11 +9,11 @@ import glob
 # =========================================================
 
 # 1. Archivos exportados del software
-input_folder = r"C:\Users\alexs\Desktop\MUESTRAS\V10\XSENS" 
+input_folder = r"C:\Users\alexs\Desktop\MUESTRAS2-XSENS\V3\IMU" 
 
 # 2. Guardados archivos salida
-output_folder = r"C:\Users\alexs\Desktop\MUESTRAS\V10\PROCESADO-Xsens"
-output_filename = 'cinematica_v10.sto'
+output_folder = r"C:\Users\alexs\Desktop\MUESTRAS2-XSENS\V3\PROCESADO-Xsens"
+output_filename = 'cinematica_v3.sto'
 
 # Frecuencia de muestreo (Xsens suele ser 60Hz o 100Hz)
 TARGET_FREQ = 60.0
@@ -22,29 +22,13 @@ TARGET_FREQ = 60.0
 # 2. MAPEO DE SENSORES (IDs -> Nombres OpenSim)
 # ---------------------------------------------------------
 sensor_mapping = {
-    # TREN INFERIOR / TRONCO
-    '10B41517': 'pelvis_imu',       # Pelvis
-    '10B4151A': 'torso_imu',        # Torso 
-
-    # TREN SUPERIOR DERECHO
-    '10B4151C': 'humerus_r_imu',    # "Bíceps" (Brazo superior derecho)
-    '10B4215D': 'radius_r_imu',     # "Muñeca derecha" (Antebrazo derecho)
-
-    # TREN SUPERIOR IZQUIERDO
-    '10B414FE': 'humerus_l_imu',    # "Bíceps" (Brazo superior izquierdo) 
-    '10B414FF': 'radius_l_imu',     # "Muñeca izquierda" (Antebrazo izquierdo)
-
-    # MANO DERECHA:
-    '10B41515': 'hand_r_imu',       # Mano Derecha 
-    
-    # CABEZA
-    #'10B41515': 'cranial_imu',       # Cabeza 
-
-    # --- NUEVO: MANOS (Usando los sensores de Torso y Cabeza) ---
-    # IMPORTANTE: Verifica qué ID tienes en qué mano. 
-    # Si al visualizar se cruzan los brazos, intercambia estos dos nombres.
-    #'10B4151A': 'hand_r_imu',       # Mano Derecha (Antes Torso)
-    #'10B41515': 'hand_l_imu',       # Mano Izquierda (Antes Cabeza)
+    "10B41517": "pelvis_imu",
+    "10B4151A": "torso_imu",
+    "10B4151C": "humerus_r_imu",
+    "10B4215D": "radius_r_imu",
+    "10B414FE": "acromial_r",
+    "10B41515": "hand_r_imu",
+    "10B414FF": "cranial_imu"
     }
 
 # ---------------------------------------------------------
