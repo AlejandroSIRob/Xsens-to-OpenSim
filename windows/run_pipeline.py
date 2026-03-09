@@ -10,7 +10,7 @@ from src import data_utils
 
 def main():
     config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
-
+    
     # Load config manually to find input directory
     import yaml
     with open(config_path, 'r') as f:
@@ -33,14 +33,14 @@ def main():
         return
 
     print("\n--- 2. Running OpenSim IMU Placer ---")
-    calibrated_model = opensim_pipeline.run_imu_placer(config_path)
+    calibrated_model = opensim_pipeline.run_imu_placer(config_data)
     
     if not calibrated_model:
         print("Failed to run IMU Placer. Aborting pipeline.")
         return
 
     print("\n--- 3. Running OpenSim Inverse Kinematics ---")
-    opensim_pipeline.run_inverse_kinematics(config_path, calibrated_model)
+    opensim_pipeline.run_inverse_kinematics(config_data, calibrated_model)
 
 if __name__ == "__main__":
     if not os.path.exists("windows/config.yaml"):

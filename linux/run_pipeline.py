@@ -26,7 +26,6 @@ def main():
     config_data['paths']['input_folder'] = fixed_input_dir
 
     print("\n--- 1. Parsing and Aligning Xsens Data ---")
-    # Note: passing the modified dictionary directly to xsens parser (Requires tweaking xsens parser slightly)
     success = xsens_parser.parse_config_dict(config_data)
     
     if not success:
@@ -34,14 +33,14 @@ def main():
         return
 
     print("\n--- 2. Running OpenSim IMU Placer ---")
-    calibrated_model = opensim_pipeline.run_imu_placer(config_path)
+    calibrated_model = opensim_pipeline.run_imu_placer(config_data)
     
     if not calibrated_model:
         print("Failed to run IMU Placer. Aborting pipeline.")
         return
 
     print("\n--- 3. Running OpenSim Inverse Kinematics ---")
-    opensim_pipeline.run_inverse_kinematics(config_path, calibrated_model)
+    opensim_pipeline.run_inverse_kinematics(config_data, calibrated_model)
 
 if __name__ == "__main__":
     # To run this script, your working directory should be the root of the repository

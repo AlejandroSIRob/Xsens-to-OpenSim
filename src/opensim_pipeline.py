@@ -2,14 +2,19 @@ import opensim as osim
 import os
 import yaml
 
-def load_config(config_path):
-    """Loads configuration from a YAML file."""
-    with open(config_path, 'r') as f:
-        return yaml.safe_load(f)
+def load_config_from_input(config_input):
+    """Loads configuration from either a file path or a dictionary."""
+    if isinstance(config_input, dict):
+        return config_input
+    else:
+        with open(config_input, 'r') as f:
+            return yaml.safe_load(f)
 
-def run_imu_placer(config_path):
-    """Runs the OpenSim IMU Placer to calibrate the model."""
-    config = load_config(config_path)
+def run_imu_placer(config_input):
+    """Runs the OpenSim IMU Placer to calibrate the model.
+       config_input can be either a path (str) or a config dict."""
+    
+    config = load_config_from_input(config_input)
     paths = config['paths']
     os_settings = config['opensim_settings']
     
@@ -48,9 +53,11 @@ def run_imu_placer(config_path):
     print(f"Calibrated model saved to: {calibrated_model_path}")
     return calibrated_model_path
 
-def run_inverse_kinematics(config_path, calibrated_model_path):
-    """Runs OpenSim IMU Inverse Kinematics using a calibrated model."""
-    config = load_config(config_path)
+def run_inverse_kinematics(config_input, calibrated_model_path):
+    """Runs OpenSim IMU Inverse Kinematics using a calibrated model.
+       config_input can be either a path (str) or a config dict."""
+    
+    config = load_config_from_input(config_input)
     paths = config['paths']
     os_settings = config['opensim_settings']
     
