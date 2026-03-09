@@ -20,6 +20,14 @@ def parse_and_align_xsens_data(config_path):
     """Parses Xsens IMU text files and converts them to OpenSim STO format."""
     try:
         config = load_config(config_path)
+        return parse_config_dict(config)
+    except Exception as e:
+        print(f"[ERROR] Failed to load config or mapping: {e}")
+        return False
+
+def parse_config_dict(config):
+    """Parses Xsens IMU text files from a loaded configuration dictionary."""
+    try:
         paths = config['paths']
         settings = config['settings']
         

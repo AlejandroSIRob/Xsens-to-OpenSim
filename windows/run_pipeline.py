@@ -6,12 +6,27 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src import xsens_parser
 from src import opensim_pipeline
+from src import data_utils
 
 def main():
     config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
 
+    # Load config manually to find input directory
+    import yaml
+    with open(config_path, 'r') as f:
+        config_data = yaml.safe_load(f)
+        
+    original_input_dir = config_data['paths']['input_folder']
+    fixed_input_dir = os.path.join(original_input_dir + "_corrected")
+    
+    print("\n--- 0. Fixing Packet Counters in IMU Data ---")
+    data_utils.process_folder(original_input_dir, fixed_input_dir)
+    
+    # Temporarily override the config to point to the fixed directory
+    config_data['paths']['input_folder'] = fixed_input_dir
+
     print("\n--- 1. Parsing and Aligning Xsens Data ---")
-    success = xsens_parser.parse_and_align_xsens_data(config_path)
+    success = xsens_parser.parse_config_dict(config_data)
     
     if not success:
         print("Failed to parse Xsens data. Aborting pipeline.")
