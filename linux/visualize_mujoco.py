@@ -20,25 +20,39 @@ def load_config(config_path):
     with open(config_path, 'r', encoding='utf-8') as f:
         return yaml.safe_load(f)
 
-def find_mujoco_model(output_dir, base_name="Rajagopal2015_BrazosLibres_PiernasBloqueadas_cvt1.xml"):
+def find_mujoco_model(output_dir, config=None):
     """
     Busca el modelo de MuJoCo en el directorio de salida.
+    Si config tiene 'mujoco_output_folder', busca primero allí.
+    Maneja rutas absolutas y relativas.
     """
-    search_patterns = [
+    search_paths = []
+    
+    # Si tenemos configuración con carpeta específica de MuJoCo
+    if config and 'paths' in config and 'mujoco_output_folder' in config['paths']:
+        mujoco_path = config['paths']['mujoco_output_folder']
+        
+        # Si es ruta absoluta, usarla directamente
+        if os.path.isabs(mujoco_path):
+            search_paths.append(os.path.join(mujoco_path, "*.xml"))
+            print(f"  Buscando en (ruta absoluta): {mujoco_path}")
+        else:
+            # Si es relativa, combinar con directorio de trabajo
+            mujoco_dir = os.path.join(os.getcwd(), mujoco_path)
+            search_paths.append(os.path.join(mujoco_dir, "*.xml"))
+            print(f"  Buscando en (ruta relativa): {mujoco_dir}")
+    
+    # Añadir rutas por defecto
+    search_paths.extend([
         os.path.join(output_dir, "mujoco_model", "*.xml"),
         os.path.join(output_dir, "*.xml"),
         os.path.join(os.getcwd(), "mujoco_model", "*.xml")
-    ]
+    ])
     
-    for pattern in search_patterns:
+    for pattern in search_paths:
         files = glob.glob(pattern)
         if files:
             return files[0]
-    
-    # Si no encuentra, usa el nombre por defecto en el directorio actual
-    default_path = os.path.join(os.getcwd(), "mujoco_model", base_name)
-    if os.path.exists(default_path):
-        return default_path
     
     return None
 
@@ -80,20 +94,37 @@ def visualize_mujoco_trajectory(config_path, mjcf_path=None, data_path=None,
         print("Instálalo con: pip install mujoco")
         return False
     
-    # Cargar configuración para obtener la frecuencia de muestreo
+    # Cargar configuración
     config = load_config(config_path)
     paths = config['paths']
     settings = config['settings']
-    sampling_rate = settings['sampling_rate']  # 60.0 por defecto
+    sampling_rate = settings['sampling_rate']
     
     output_dir = os.path.join(os.getcwd(), paths['output_folder'])
     
+    print(f"\n--- Visualizando trayectoria en MuJoCo ---")
+    print(f"Directorio de salida OpenSim: {output_dir}")
+    if 'mujoco_output_folder' in paths:
+        mujoco_path = paths['mujoco_output_folder']
+        if os.path.isabs(mujoco_path):
+            print(f"Carpeta MuJoCo configurada (absoluta): {mujoco_path}")
+        else:
+            print(f"Carpeta MuJoCo configurada (relativa): {mujoco_path}")
+    
     # Determinar rutas de archivos
     if mjcf_path is None:
-        mjcf_path = find_mujoco_model(output_dir)
+        mjcf_path = find_mujoco_model(output_dir, config)
         if mjcf_path is None:
             print("ERROR: No se encontró el modelo de MuJoCo.")
-            print("Busca el archivo XML en el directorio de salida o especifica mjcf_path.")
+            print("Rutas buscadas:")
+            if 'mujoco_output_folder' in paths:
+                mujoco_path = paths['mujoco_output_folder']
+                if os.path.isabs(mujoco_path):
+                    print(f"  - {os.path.join(mujoco_path, '*.xml')} (configurada)")
+                else:
+                    print(f"  - {os.path.join(os.getcwd(), mujoco_path, '*.xml')} (configurada)")
+            print(f"  - {os.path.join(output_dir, 'mujoco_model', '*.xml')}")
+            print(f"  - {os.path.join(output_dir, '*.xml')}")
             return False
     
     if data_path is None:
@@ -102,8 +133,7 @@ def visualize_mujoco_trajectory(config_path, mjcf_path=None, data_path=None,
             print("ERROR: No se encontró el archivo de movimiento (.mot).")
             return False
     
-    print(f"\n--- Visualizando trayectoria en MuJoCo ---")
-    print(f"Modelo MJCF: {mjcf_path}")
+    print(f"\nModelo MJCF: {mjcf_path}")
     print(f"Datos: {data_path}")
     print(f"Frecuencia de muestreo (config): {sampling_rate} Hz")
     print(f"Factor de velocidad: {speed_factor}")
@@ -145,7 +175,6 @@ def visualize_mujoco_trajectory(config_path, mjcf_path=None, data_path=None,
         if 'time' in df.columns:
             times = df['time'].values
         else:
-            # Si no hay columna time, asumimos la frecuencia de muestreo
             times = np.arange(len(df)) / sampling_rate
             print(f"Nota: Usando frecuencia de muestreo de configuración: {sampling_rate} Hz")
         

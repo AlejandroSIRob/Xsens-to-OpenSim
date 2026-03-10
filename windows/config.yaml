@@ -7,6 +7,7 @@ paths:
   mapping_file: "sensor_mapping.json"
   model_path: "models\\Rajagopal_WithMuscles.osim"
   geometry_path: "models\\Geometry"
+  mujoco_output_folder: "C:\\Users\\drims\\mujoco_output_folder"
 
 settings:
   sampling_rate: 60.0

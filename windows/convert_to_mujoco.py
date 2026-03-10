@@ -12,6 +12,9 @@ def main():
     
     if not success:
         print("MuJoCo conversion failed.")
+        sys.exit(1)
+    
+    print("MuJoCo conversion completed successfully.")
 
 if __name__ == "__main__":
     if not os.path.exists("windows/config.yaml"):
