@@ -14,6 +14,6 @@ settings:
 
 opensim_settings:
   base_imu_label: "pelvis_imu"
-  base_heading_axis: "z"
+  base_heading_axis: "-z"
   sensor_to_opensim_rot: [-1.57079633, 0, 0] # -pi/2 on X axis
   output_model_name: "calibrated_model.osim"
