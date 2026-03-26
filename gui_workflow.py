@@ -22,7 +22,7 @@ class WorkflowGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Xsens-to-OpenSim Workflow Controller")
-        self.root.geometry("850x750")
+        self.root.geometry("900x800")
         
         # Detectar sistema operativo
         self.os_type = platform.system().lower()
@@ -42,6 +42,10 @@ class WorkflowGUI:
         
         # Variables para los campos
         self.create_variables()
+        
+        # Almacenar configuración JSON cargada para procesamiento por lotes
+        self.loaded_json_config = None
+        self.loaded_json_path = None
         
         # Crear la interfaz
         self.create_widgets()
@@ -101,6 +105,7 @@ class WorkflowGUI:
         self.trim_input_file = tk.StringVar(value="")
         self.trim_output_dir = tk.StringVar(value="")
         self.trim_reset_time = tk.BooleanVar(value=True)
+        self.batch_process_mode = tk.BooleanVar(value=False)  # Modo por lotes
     
     def create_widgets(self):
         """Crea los widgets de la interfaz"""
@@ -264,28 +269,56 @@ class WorkflowGUI:
         self.log_text.tag_config('error', foreground='red')
         self.log_text.tag_config('success', foreground='green')
         self.log_text.tag_config('info', foreground='blue')
+        self.log_text.tag_config('warning', foreground='orange')
     
     def create_trim_tab(self, parent):
         """Pestaña para recortar archivos de cinemática inversa"""
+        
+        # Frame para modo de operación
+        mode_frame = ttk.LabelFrame(parent, text="Modo de Operación", padding=10)
+        mode_frame.pack(fill='x', padx=10, pady=5)
+        
+        self.batch_mode_var = tk.BooleanVar(value=False)
+        ttk.Radiobutton(mode_frame, text="Modo Individual (cargar un archivo con sus segmentos)", 
+                       variable=self.batch_mode_var, value=False, 
+                       command=self.toggle_trim_mode).pack(anchor='w')
+        ttk.Radiobutton(mode_frame, text="Modo Lote (procesar todos los archivos del JSON)", 
+                       variable=self.batch_mode_var, value=True,
+                       command=self.toggle_trim_mode).pack(anchor='w')
         
         # Frame para configuración
         config_frame = ttk.LabelFrame(parent, text="Configuración de Recorte", padding=10)
         config_frame.pack(fill='x', padx=10, pady=5)
         
-        # Archivo de entrada
-        ttk.Label(config_frame, text="Archivo IK (.mot):").grid(row=0, column=0, sticky='w', pady=2)
-        ttk.Entry(config_frame, textvariable=self.trim_input_file, width=60).grid(row=0, column=1, padx=5)
-        ttk.Button(config_frame, text="Examinar", command=lambda: self.browse_file(
-            self.trim_input_file, [("MOT files", "*.mot"), ("STO files", "*.sto")])).grid(row=0, column=2)
+        # Archivo de entrada (modo individual)
+        self.trim_input_frame = ttk.Frame(config_frame)
+        self.trim_input_frame.pack(fill='x', pady=2)
+        
+        ttk.Label(self.trim_input_frame, text="Archivo IK (.mot):").pack(side='left')
+        ttk.Entry(self.trim_input_frame, textvariable=self.trim_input_file, width=50).pack(side='left', padx=5)
+        ttk.Button(self.trim_input_frame, text="Examinar", command=lambda: self.browse_file(
+            self.trim_input_file, [("MOT files", "*.mot"), ("STO files", "*.sto")])).pack(side='left')
+        
+        # Información del JSON cargado (modo lote)
+        self.json_info_frame = ttk.Frame(config_frame)
+        self.json_info_frame.pack(fill='x', pady=5)
+        self.json_info_frame.pack_forget()  # Ocultar inicialmente
+        
+        ttk.Label(self.json_info_frame, text="JSON cargado:").pack(side='left')
+        self.json_path_label = ttk.Label(self.json_info_frame, text="Ninguno", foreground='gray')
+        self.json_path_label.pack(side='left', padx=5)
+        ttk.Button(self.json_info_frame, text="Limpiar JSON", command=self.clear_loaded_json).pack(side='left', padx=5)
         
         # Directorio de salida
-        ttk.Label(config_frame, text="Directorio salida:").grid(row=1, column=0, sticky='w', pady=2)
-        ttk.Entry(config_frame, textvariable=self.trim_output_dir, width=60).grid(row=1, column=1, padx=5)
-        ttk.Button(config_frame, text="Examinar", command=lambda: self.browse_folder(self.trim_output_dir)).grid(row=1, column=2)
+        output_frame = ttk.Frame(config_frame)
+        output_frame.pack(fill='x', pady=5)
+        ttk.Label(output_frame, text="Directorio salida:").pack(side='left')
+        ttk.Entry(output_frame, textvariable=self.trim_output_dir, width=50).pack(side='left', padx=5)
+        ttk.Button(output_frame, text="Examinar", command=lambda: self.browse_folder(self.trim_output_dir)).pack(side='left')
         
         # Checkbox para resetear tiempo
         ttk.Checkbutton(config_frame, text="Reiniciar tiempo a 0 en segmentos", 
-                       variable=self.trim_reset_time).grid(row=2, column=0, columnspan=2, sticky='w', pady=5)
+                       variable=self.trim_reset_time).pack(anchor='w', pady=5)
         
         # Frame para segmentos
         segments_frame = ttk.LabelFrame(parent, text="Segmentos a Recortar", padding=10)
@@ -293,14 +326,14 @@ class WorkflowGUI:
         
         # Treeview para segmentos
         columns = ('start', 'end', 'name')
-        self.trim_tree = ttk.Treeview(segments_frame, columns=columns, show='headings', height=6)
+        self.trim_tree = ttk.Treeview(segments_frame, columns=columns, show='headings', height=8)
         self.trim_tree.heading('start', text='Inicio (s)')
         self.trim_tree.heading('end', text='Fin (s)')
         self.trim_tree.heading('name', text='Nombre')
         
         self.trim_tree.column('start', width=100)
         self.trim_tree.column('end', width=100)
-        self.trim_tree.column('name', width=250)
+        self.trim_tree.column('name', width=300)
         
         self.trim_tree.pack(side='left', fill='both', expand=True)
         
@@ -324,14 +357,49 @@ class WorkflowGUI:
         action_frame = ttk.Frame(parent)
         action_frame.pack(fill='x', padx=10, pady=10)
         
-        ttk.Button(action_frame, text="Ejecutar Recorte", 
-                  command=self.run_trim_ik).pack(side='left', padx=5)
-        ttk.Button(action_frame, text="Cargar Configuración JSON", 
-                  command=self.load_trim_config).pack(side='left', padx=5)
-        ttk.Button(action_frame, text="Guardar Configuración JSON", 
-                  command=self.save_trim_config).pack(side='left', padx=5)
-        ttk.Button(action_frame, text="Generar Configuración desde Carpeta", 
-                  command=self.generate_trim_config_from_folder).pack(side='left', padx=5)
+        self.load_json_btn = ttk.Button(action_frame, text="Cargar Configuración JSON", 
+                                        command=self.load_trim_config)
+        self.load_json_btn.pack(side='left', padx=5)
+        
+        self.save_json_btn = ttk.Button(action_frame, text="Guardar Configuración JSON", 
+                                        command=self.save_trim_config)
+        self.save_json_btn.pack(side='left', padx=5)
+        
+        self.generate_btn = ttk.Button(action_frame, text="Generar Configuración desde Carpeta", 
+                                       command=self.generate_trim_config_from_folder)
+        self.generate_btn.pack(side='left', padx=5)
+        
+        self.execute_btn = ttk.Button(action_frame, text="Ejecutar Recorte", 
+                                      command=self.run_trim_ik, style="Accent.TButton")
+        self.execute_btn.pack(side='left', padx=5)
+        
+        # Estilo para botón de ejecutar
+        style = ttk.Style()
+        style.configure("Accent.TButton", foreground="green")
+    
+    def toggle_trim_mode(self):
+        """Alterna entre modo individual y modo lote"""
+        if self.batch_mode_var.get():
+            # Modo lote - ocultar selector de archivo individual, mostrar info JSON
+            self.trim_input_frame.pack_forget()
+            self.json_info_frame.pack(fill='x', pady=5)
+            # Limpiar segmentos actuales
+            self.clear_trim_segments()
+            self.trim_input_file.set("")
+        else:
+            # Modo individual - mostrar selector de archivo, ocultar info JSON
+            self.json_info_frame.pack_forget()
+            self.trim_input_frame.pack(fill='x', pady=2)
+            # Limpiar JSON cargado
+            self.clear_loaded_json()
+    
+    def clear_loaded_json(self):
+        """Limpia el JSON cargado"""
+        self.loaded_json_config = None
+        self.loaded_json_path = None
+        self.json_path_label.config(text="Ninguno", foreground='gray')
+        self.clear_trim_segments()
+        self.log("JSON cargado limpiado", 'info')
     
     def toggle_mujoco(self):
         """Habilita/deshabilita campos de MuJoCo"""
@@ -541,14 +609,12 @@ class WorkflowGUI:
     
     def add_trim_segment(self):
         """Agrega un segmento a la lista"""
-        # Diálogo simple para ingresar datos
         dialog = tk.Toplevel(self.root)
         dialog.title("Agregar Segmento")
         dialog.geometry("350x200")
         dialog.transient(self.root)
         dialog.grab_set()
         
-        # Centrar diálogo
         dialog.update_idletasks()
         x = self.root.winfo_x() + (self.root.winfo_width() - 350) // 2
         y = self.root.winfo_y() + (self.root.winfo_height() - 200) // 2
@@ -568,7 +634,6 @@ class WorkflowGUI:
         
         def add():
             try:
-                # Convertir explícitamente a float
                 start = float(start_var.get())
                 end = float(end_var.get())
                 if start >= end:
@@ -577,7 +642,6 @@ class WorkflowGUI:
                 name = name_var.get().strip()
                 if not name:
                     name = f"segment_{len(self.trim_tree.get_children())+1}"
-                # Guardar como números float, no strings
                 self.trim_tree.insert('', 'end', values=(start, end, name))
                 dialog.destroy()
             except ValueError:
@@ -601,83 +665,129 @@ class WorkflowGUI:
     
     def clear_trim_segments(self):
         """Limpia todos los segmentos"""
-        if self.trim_tree.get_children():
-            if messagebox.askyesno("Confirmar", "¿Eliminar todos los segmentos?"):
-                for item in self.trim_tree.get_children():
-                    self.trim_tree.delete(item)
+        for item in self.trim_tree.get_children():
+            self.trim_tree.delete(item)
     
     def run_trim_ik(self):
-        """Ejecuta el recorte de IK"""
-        from src.ik_trimmer import trim_ik_multiple_segments
+        """Ejecuta el recorte de IK según el modo seleccionado"""
+        from src.ik_trimmer import trim_ik_multiple_segments, trim_ik_batch
         
-        input_file = self.trim_input_file.get()
-        if not input_file or not os.path.exists(input_file):
-            messagebox.showerror("Error", "Archivo de entrada válido requerido")
-            return
-        
-        segments = []
-        for item in self.trim_tree.get_children():
-            values = self.trim_tree.item(item)['values']
-            # Asegurar que start y end son floats
-            try:
-                start = float(values[0])
-                end = float(values[1])
-                name = str(values[2])
-                segments.append({
-                    'start': start,
-                    'end': end,
-                    'name': name
-                })
-            except (ValueError, TypeError) as e:
-                self.log(f"Error en segmento: {values} - {e}", 'error')
-                messagebox.showerror("Error", f"Error en segmento: {values}\n{e}")
-                return
-        
-        if not segments:
-            messagebox.showerror("Error", "Agregue al menos un segmento")
-            return
-        
+        reset_time = self.trim_reset_time.get()
         output_dir = self.trim_output_dir.get()
         if not output_dir:
             output_dir = None
         else:
             os.makedirs(output_dir, exist_ok=True)
         
-        reset_time = self.trim_reset_time.get()
+        # Modo lote
+        if self.batch_mode_var.get():
+            if not self.loaded_json_config:
+                messagebox.showerror("Error", "No hay configuración JSON cargada. Use 'Cargar Configuración JSON' primero.")
+                return
+            
+            self.log("\n" + "="*60)
+            self.log("INICIANDO RECORTE EN MODO LOTE", 'info')
+            self.log(f"Archivo JSON: {self.loaded_json_path}")
+            self.log(f"Archivos en configuración: {len(self.loaded_json_config.get('archivos', []))}")
+            self.log("="*60)
+            
+            def run_batch():
+                try:
+                    # Guardar configuración temporal para procesamiento por lotes
+                    temp_config_path = os.path.join(os.path.dirname(self.loaded_json_path), 
+                                                    f"temp_batch_{os.path.basename(self.loaded_json_path)}")
+                    with open(temp_config_path, 'w') as f:
+                        json.dump(self.loaded_json_config, f, indent=4)
+                    
+                    resultados = trim_ik_batch(
+                        config_path=temp_config_path,
+                        output_dir=output_dir,
+                        reset_time=reset_time
+                    )
+                    
+                    # Limpiar archivo temporal
+                    if os.path.exists(temp_config_path):
+                        os.remove(temp_config_path)
+                    
+                    total_archivos = len([v for v in resultados.values() if v])
+                    total_segmentos = sum(len(v) for v in resultados.values())
+                    
+                    self.log(f"\n✓ Recorte por lotes completado", 'success')
+                    self.log(f"  Archivos procesados: {total_archivos}/{len(resultados)}", 'success')
+                    self.log(f"  Segmentos generados: {total_segmentos}", 'success')
+                    self.status_var.set(f"Lote completado: {total_segmentos} segmentos")
+                    
+                except Exception as e:
+                    self.log(f"✗ Error en recorte por lotes: {e}", 'error')
+                    self.status_var.set("Error en recorte por lotes")
+                    import traceback
+                    self.log(traceback.format_exc(), 'error')
+            
+            thread = threading.Thread(target=run_batch)
+            thread.daemon = True
+            thread.start()
         
-        self.log("\n" + "="*60)
-        self.log("INICIANDO RECORTE DE IK", 'info')
-        self.log(f"Archivo: {input_file}")
-        self.log(f"Segmentos: {len(segments)}")
-        for seg in segments:
-            self.log(f"  - {seg['name']}: {seg['start']}s - {seg['end']}s", 'info')
-        self.log("="*60)
-        
-        def run():
-            try:
-                resultados = trim_ik_multiple_segments(
-                    input_path=input_file,
-                    segments=segments,
-                    output_dir=output_dir,
-                    reset_time=reset_time
-                )
-                if resultados:
-                    self.log(f"\n✓ Recorte completado: {len(resultados)} segmentos generados", 'success')
-                    for r in resultados:
-                        self.log(f"  - {os.path.basename(r)}", 'success')
-                    self.status_var.set(f"Recorte completado: {len(resultados)} segmentos")
-                else:
-                    self.log(f"\n✗ No se generaron segmentos. Verifique los tiempos.", 'error')
-                    self.status_var.set("Recorte fallido - verifique tiempos")
-            except Exception as e:
-                self.log(f"✗ Error en recorte: {e}", 'error')
-                self.status_var.set("Error en recorte")
-                import traceback
-                self.log(traceback.format_exc(), 'error')
-        
-        thread = threading.Thread(target=run)
-        thread.daemon = True
-        thread.start()
+        # Modo individual
+        else:
+            input_file = self.trim_input_file.get()
+            if not input_file or not os.path.exists(input_file):
+                messagebox.showerror("Error", "Archivo de entrada válido requerido")
+                return
+            
+            segments = []
+            for item in self.trim_tree.get_children():
+                values = self.trim_tree.item(item)['values']
+                try:
+                    start = float(values[0])
+                    end = float(values[1])
+                    name = str(values[2])
+                    segments.append({
+                        'start': start,
+                        'end': end,
+                        'name': name
+                    })
+                except (ValueError, TypeError) as e:
+                    self.log(f"Error en segmento: {values} - {e}", 'error')
+                    messagebox.showerror("Error", f"Error en segmento: {values}\n{e}")
+                    return
+            
+            if not segments:
+                messagebox.showerror("Error", "Agregue al menos un segmento")
+                return
+            
+            self.log("\n" + "="*60)
+            self.log("INICIANDO RECORTE EN MODO INDIVIDUAL", 'info')
+            self.log(f"Archivo: {input_file}")
+            self.log(f"Segmentos: {len(segments)}")
+            for seg in segments:
+                self.log(f"  - {seg['name']}: {seg['start']}s - {seg['end']}s", 'info')
+            self.log("="*60)
+            
+            def run_individual():
+                try:
+                    resultados = trim_ik_multiple_segments(
+                        input_path=input_file,
+                        segments=segments,
+                        output_dir=output_dir,
+                        reset_time=reset_time
+                    )
+                    if resultados:
+                        self.log(f"\n✓ Recorte completado: {len(resultados)} segmentos generados", 'success')
+                        for r in resultados:
+                            self.log(f"  - {os.path.basename(r)}", 'success')
+                        self.status_var.set(f"Recorte completado: {len(resultados)} segmentos")
+                    else:
+                        self.log(f"\n✗ No se generaron segmentos. Verifique los tiempos.", 'error')
+                        self.status_var.set("Recorte fallido - verifique tiempos")
+                except Exception as e:
+                    self.log(f"✗ Error en recorte: {e}", 'error')
+                    self.status_var.set("Error en recorte")
+                    import traceback
+                    self.log(traceback.format_exc(), 'error')
+            
+            thread = threading.Thread(target=run_individual)
+            thread.daemon = True
+            thread.start()
     
     def load_trim_config(self):
         """Carga configuración de recorte desde JSON"""
@@ -692,67 +802,88 @@ class WorkflowGUI:
             with open(filename, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             
-            # Limpiar segmentos actuales
-            self.clear_trim_segments()
+            self.loaded_json_config = config
+            self.loaded_json_path = filename
+            self.json_path_label.config(text=os.path.basename(filename), foreground='green')
             
-            # Buscar el archivo en la configuración
-            if 'archivos' in config:
-                archivos = config['archivos']
-                
+            # Mostrar información del JSON
+            archivos = config.get('archivos', [])
+            total_segmentos = sum(len(a.get('segmentos', [])) for a in archivos)
+            self.log(f"✓ JSON cargado: {os.path.basename(filename)}", 'success')
+            self.log(f"  Archivos: {len(archivos)}", 'info')
+            self.log(f"  Segmentos totales: {total_segmentos}", 'info')
+            
+            # Si estamos en modo individual, preguntar qué archivo cargar
+            if not self.batch_mode_var.get():
                 if len(archivos) == 1:
                     # Un solo archivo, cargar directamente
                     archivo_config = archivos[0]
                     ruta_archivo = archivo_config.get('ruta', archivo_config.get('nombre', ''))
                     if ruta_archivo and os.path.exists(ruta_archivo):
                         self.trim_input_file.set(ruta_archivo)
+                    else:
+                        self.log(f"Advertencia: Archivo no encontrado: {ruta_archivo}", 'warning')
+                    
                     segmentos = archivo_config.get('segmentos', [])
-                else:
-                    # Múltiples archivos, preguntar cuál usar
+                    self.clear_trim_segments()
+                    for seg in segmentos:
+                        try:
+                            start = float(seg.get('start', 0))
+                            end = float(seg.get('end', 1))
+                            name = seg.get('name', 'segmento')
+                            self.trim_tree.insert('', 'end', values=(start, end, name))
+                        except (ValueError, TypeError) as e:
+                            self.log(f"Error cargando segmento {seg}: {e}", 'error')
+                    
+                    self.log(f"Cargados {len(segmentos)} segmentos para archivo individual", 'success')
+                    
+                elif len(archivos) > 1:
+                    # Múltiples archivos, mostrar diálogo para seleccionar
                     opciones = []
                     for i, a in enumerate(archivos):
                         nombre = a.get('nombre', a.get('ruta', f'Archivo {i+1}'))
-                        opciones.append(f"{i+1}: {nombre}")
+                        num_seg = len(a.get('segmentos', []))
+                        opciones.append(f"{i+1}: {nombre} ({num_seg} segmentos)")
                     
                     seleccion = simpledialog.askstring(
                         "Seleccionar Archivo",
-                        f"Se encontraron {len(archivos)} archivos:\n" + 
+                        f"Se encontraron {len(archivos)} archivos en el JSON:\n\n" + 
                         "\n".join(opciones) + 
-                        "\n\nIngrese el número (1-{}) o deje en blanco para usar el primero:".format(len(archivos))
+                        "\n\nIngrese el número (1-{}) para cargar sus segmentos:".format(len(archivos))
                     )
                     
                     if seleccion and seleccion.isdigit():
                         idx = int(seleccion) - 1
                         if 0 <= idx < len(archivos):
                             archivo_config = archivos[idx]
+                            ruta_archivo = archivo_config.get('ruta', archivo_config.get('nombre', ''))
+                            if ruta_archivo and os.path.exists(ruta_archivo):
+                                self.trim_input_file.set(ruta_archivo)
+                            else:
+                                self.log(f"Advertencia: Archivo no encontrado: {ruta_archivo}", 'warning')
+                            
+                            segmentos = archivo_config.get('segmentos', [])
+                            self.clear_trim_segments()
+                            for seg in segmentos:
+                                try:
+                                    start = float(seg.get('start', 0))
+                                    end = float(seg.get('end', 1))
+                                    name = seg.get('name', 'segmento')
+                                    self.trim_tree.insert('', 'end', values=(start, end, name))
+                                except (ValueError, TypeError) as e:
+                                    self.log(f"Error cargando segmento {seg}: {e}", 'error')
+                            
+                            self.log(f"Cargados {len(segmentos)} segmentos para archivo seleccionado", 'success')
                         else:
-                            archivo_config = archivos[0]
+                            self.log("Número inválido, no se cargaron segmentos", 'warning')
                     else:
-                        archivo_config = archivos[0]
-                    
-                    ruta_archivo = archivo_config.get('ruta', archivo_config.get('nombre', ''))
-                    if ruta_archivo and os.path.exists(ruta_archivo):
-                        self.trim_input_file.set(ruta_archivo)
-                    segmentos = archivo_config.get('segmentos', [])
+                        self.log("No se seleccionó ningún archivo, los segmentos no se cargaron", 'warning')
             else:
-                # Configuración simple
-                segmentos = config.get('segmentos', [])
-                if 'ruta' in config:
-                    self.trim_input_file.set(config['ruta'])
-                elif 'archivo' in config:
-                    self.trim_input_file.set(config['archivo'])
+                # Modo lote - solo mostrar información
+                self.log(f"Modo lote activado. Listo para procesar todos los archivos.", 'info')
+                self.log("Use 'Ejecutar Recorte' para procesar todos los archivos del JSON", 'info')
             
-            # Agregar segmentos - convertir a float explícitamente
-            for seg in segmentos:
-                try:
-                    start = float(seg.get('start', 0))
-                    end = float(seg.get('end', 1))
-                    name = seg.get('name', 'segmento')
-                    self.trim_tree.insert('', 'end', values=(start, end, name))
-                except (ValueError, TypeError) as e:
-                    self.log(f"Error cargando segmento {seg}: {e}", 'error')
-            
-            self.log(f"✓ Configuración cargada: {len(segmentos)} segmentos", 'success')
-            self.status_var.set(f"Cargados {len(segmentos)} segmentos")
+            self.status_var.set(f"JSON cargado: {os.path.basename(filename)}")
             
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo cargar configuración:\n{e}")
@@ -760,59 +891,80 @@ class WorkflowGUI:
     
     def save_trim_config(self):
         """Guarda la configuración de recorte a JSON"""
-        input_file = self.trim_input_file.get()
-        if not input_file:
-            messagebox.showerror("Error", "Especifique un archivo de entrada")
-            return
+        # Determinar qué guardar según el modo
+        if self.batch_mode_var.get() and self.loaded_json_config:
+            # Si estamos en modo lote y hay JSON cargado, guardar el JSON actual
+            if not self.loaded_json_path:
+                filename = filedialog.asksaveasfilename(
+                    title="Guardar configuración de recorte",
+                    defaultextension=".json",
+                    filetypes=[("JSON files", "*.json")],
+                    initialfile="trim_config.json"
+                )
+            else:
+                filename = self.loaded_json_path
+            
+            if filename:
+                try:
+                    with open(filename, 'w', encoding='utf-8') as f:
+                        json.dump(self.loaded_json_config, f, indent=4, ensure_ascii=False)
+                    self.log(f"✓ Configuración JSON guardada: {filename}", 'success')
+                    self.status_var.set("Configuración guardada")
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudo guardar configuración:\n{e}")
         
-        segments = []
-        for item in self.trim_tree.get_children():
-            values = self.trim_tree.item(item)['values']
-            try:
-                start = float(values[0])
-                end = float(values[1])
-                name = str(values[2])
-                segments.append({
-                    'start': start,
-                    'end': end,
-                    'name': name
-                })
-            except (ValueError, TypeError) as e:
-                self.log(f"Error en segmento {values}: {e}", 'error')
-                messagebox.showerror("Error", f"Error en segmento {values}\n{e}")
+        else:
+            # Modo individual - guardar segmentos actuales
+            input_file = self.trim_input_file.get()
+            if not input_file:
+                messagebox.showerror("Error", "Especifique un archivo de entrada")
                 return
-        
-        if not segments:
-            messagebox.showerror("Error", "No hay segmentos para guardar")
-            return
-        
-        filename = filedialog.asksaveasfilename(
-            title="Guardar configuración de recorte",
-            defaultextension=".json",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-            initialfile="trim_config.json"
-        )
-        
-        if not filename:
-            return
-        
-        config = {
-            "archivos": [
-                {
-                    "ruta": input_file,
-                    "segmentos": segments
+            
+            segments = []
+            for item in self.trim_tree.get_children():
+                values = self.trim_tree.item(item)['values']
+                try:
+                    start = float(values[0])
+                    end = float(values[1])
+                    name = str(values[2])
+                    segments.append({
+                        'start': start,
+                        'end': end,
+                        'name': name
+                    })
+                except (ValueError, TypeError) as e:
+                    self.log(f"Error en segmento {values}: {e}", 'error')
+                    messagebox.showerror("Error", f"Error en segmento {values}\n{e}")
+                    return
+            
+            if not segments:
+                messagebox.showerror("Error", "No hay segmentos para guardar")
+                return
+            
+            filename = filedialog.asksaveasfilename(
+                title="Guardar configuración de recorte",
+                defaultextension=".json",
+                filetypes=[("JSON files", "*.json")],
+                initialfile="trim_config.json"
+            )
+            
+            if filename:
+                config = {
+                    "archivos": [
+                        {
+                            "ruta": input_file,
+                            "segmentos": segments
+                        }
+                    ]
                 }
-            ]
-        }
-        
-        try:
-            with open(filename, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=4, ensure_ascii=False)
-            self.log(f"✓ Configuración guardada: {filename}", 'success')
-            self.status_var.set("Configuración guardada")
-        except Exception as e:
-            messagebox.showerror("Error", f"No se pudo guardar configuración:\n{e}")
-            self.log(f"Error guardando configuración: {e}", 'error')
+                
+                try:
+                    with open(filename, 'w', encoding='utf-8') as f:
+                        json.dump(config, f, indent=4, ensure_ascii=False)
+                    self.log(f"✓ Configuración guardada: {filename}", 'success')
+                    self.status_var.set("Configuración guardada")
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudo guardar configuración:\n{e}")
     
     def generate_trim_config_from_folder(self):
         """Genera configuración de recorte desde una carpeta con archivos IK"""
@@ -823,7 +975,7 @@ class WorkflowGUI:
         # Diálogo para tiempos por defecto
         dialog = tk.Toplevel(self.root)
         dialog.title("Configurar Tiempos por Defecto")
-        dialog.geometry("300x150")
+        dialog.geometry("300x180")
         dialog.transient(self.root)
         dialog.grab_set()
         
@@ -834,6 +986,11 @@ class WorkflowGUI:
         ttk.Label(dialog, text="Tiempo de fin (s):").grid(row=1, column=0, padx=10, pady=10)
         end_var = tk.StringVar(value="1.0")
         ttk.Entry(dialog, textvariable=end_var, width=15).grid(row=1, column=1, padx=10, pady=10)
+        
+        # Opción para cargar automáticamente después de generar
+        auto_load_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(dialog, text="Cargar automáticamente después de generar", 
+                       variable=auto_load_var).grid(row=2, column=0, columnspan=2, pady=5)
         
         def generate():
             try:
@@ -888,23 +1045,25 @@ class WorkflowGUI:
                     self.log(f"  Archivos encontrados: {len(archivos)}", 'info')
                     self.log(f"  Tiempos por defecto: {start_time}s - {end_time}s", 'info')
                     
-                    # Preguntar si quiere cargar esta configuración
-                    if messagebox.askyesno("Cargar Configuración", 
-                                           f"¿Desea cargar esta configuración ahora?\n\n"
-                                           f"Archivos: {len(archivos)}\n"
-                                           f"Tiempos: {start_time}s - {end_time}s"):
-                        # Cargar el primer archivo de la configuración
-                        if archivos:
+                    # Cargar automáticamente si se solicitó
+                    if auto_load_var.get():
+                        self.loaded_json_config = config
+                        self.loaded_json_path = json_filename
+                        self.json_path_label.config(text=os.path.basename(json_filename), foreground='green')
+                        
+                        # Si estamos en modo individual, cargar el primer archivo
+                        if not self.batch_mode_var.get() and archivos:
                             self.trim_input_file.set(archivos[0])
                             self.clear_trim_segments()
                             self.trim_tree.insert('', 'end', values=(start_time, end_time, nombre_base))
                             self.log(f"Configuración cargada con {len(archivos)} archivos disponibles", 'success')
-                            self.status_var.set(f"Configuración generada y cargada")
+                        
+                        self.status_var.set(f"Configuración generada y cargada")
                 
             except ValueError:
                 messagebox.showerror("Error", "Tiempos deben ser números válidos")
         
-        ttk.Button(dialog, text="Generar", command=generate).pack(pady=10)
+        ttk.Button(dialog, text="Generar", command=generate).grid(row=3, column=0, columnspan=2, pady=10)
 
 
 def main():
