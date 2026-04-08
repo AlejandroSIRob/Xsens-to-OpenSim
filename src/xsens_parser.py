@@ -40,8 +40,8 @@ def parse_config_dict(config):
         paths = config['paths']
         settings = config['settings']
         
-        # IMPORTANTE: Usar la carpeta con los archivos ya corregidos
-        input_folder = paths['input_folder']  # Esta debería ser la carpeta "_corrected"
+        # IMPORTANT: Use the folder with already corrected files
+        input_folder = paths['input_folder']  # This should be the "_corrected" folder
         output_folder = paths['output_folder']
         output_filename = paths['output_filename']
         target_freq = settings['sampling_rate']
@@ -58,7 +58,7 @@ def parse_config_dict(config):
         print(f"No files found in: {input_folder}")
         return False
 
-    # --- PASO 1: IDENTIFICAR SENSOR BASE (pelvis_imu) ---
+    # --- STEP 1: IDENTIFY BASE SENSOR (pelvis_imu) ---
     base_sensor_id = None
     base_sensor_name = "pelvis_imu"
     
@@ -73,8 +73,8 @@ def parse_config_dict(config):
     
     print(f"Base sensor: {base_sensor_name} (ID: {base_sensor_id})")
     
-    # --- PASO 2: CARGAR Y PROCESAR CADA SENSOR ---
-    sensor_data = {}  # Diccionario para almacenar datos de cada sensor
+    # --- STEP 2: LOAD AND PROCESS EACH SENSOR ---
+    sensor_data = {}  # Dictionary to store data for each sensor
     base_packet_range = None
     
     print("Loading sensor data...")
@@ -88,7 +88,7 @@ def parse_config_dict(config):
         body_name = sensor_mapping[sensor_id]
         print(f"  -> Loading {body_name} (ID: {sensor_id})...")
         
-        # Detectar inicio de datos
+        # Detect start of data
         with open(filepath, 'r', encoding='utf-8') as f:
             try:
                 skip_rows = next(i for i, line in enumerate(f) if 'PacketCounter' in line)
@@ -96,13 +96,13 @@ def parse_config_dict(config):
                 print(f"     Warning: 'PacketCounter' not found in {filename}, skipping.")
                 continue
         
-        # Cargar datos completos
+        # Load complete data
         df = pd.read_csv(filepath, sep='\t', skiprows=skip_rows)
         
-        # Limpiar y ordenar por PacketCounter
+        # Clean and sort by PacketCounter
         df = df.drop_duplicates(subset=['PacketCounter']).sort_values('PacketCounter')
         
-        # Guardar información del sensor
+        # Save sensor information
         sensor_data[sensor_id] = {
             'body_name': body_name,
             'dataframe': df,
@@ -110,7 +110,7 @@ def parse_config_dict(config):
             'last_packet': df['PacketCounter'].iloc[-1]
         }
         
-        # Si es el sensor base, guardar su rango de paquetes
+        # If it's the base sensor, save its packet range
         if sensor_id == base_sensor_id:
             base_packet_range = (df['PacketCounter'].iloc[0], df['PacketCounter'].iloc[-1])
             print(f"     Base sensor packet range: {base_packet_range[0]} - {base_packet_range[1]}")
@@ -123,7 +123,7 @@ def parse_config_dict(config):
         print("[ERROR] Base sensor data not found.")
         return False
     
-    # --- PASO 3: ALINEAR TODOS LOS SENSORES AL TIEMPO DEL SENSOR BASE ---
+    # --- STEP 3: ALIGN ALL SENSORS TO BASE SENSOR TIME ---
     print("\nAligning sensors to base sensor timeline...")
     
     aligned_data = pd.DataFrame()
@@ -132,11 +132,11 @@ def parse_config_dict(config):
         body_name = data['body_name']
         df = data['dataframe'].copy()
         
-        # Calcular tiempo para este sensor: tiempo = (packet - first_packet) / freq
-        # Esto hace que el primer paquete de CADA sensor sea tiempo 0 para ese sensor
+        # Calculate time for this sensor: time = (packet - first_packet) / freq
+        # This makes the first packet of EACH sensor be time 0 for that sensor
         df['time_local'] = (df['PacketCounter'] - data['first_packet']) / target_freq
         
-        # Para el sensor base, también calculamos su tiempo local
+        # For the base sensor, we also calculate its local time
         if sensor_id == base_sensor_id:
             df['time'] = df['time_local']
             df_base = df.set_index('time')
@@ -144,29 +144,29 @@ def parse_config_dict(config):
             df_base = df_base.sort_index()
             print(f"  Base sensor ({body_name}): {len(df_base)} frames, time range: {df_base.index[0]:.2f} - {df_base.index[-1]:.2f}s")
         else:
-            # Para sensores no base, necesitamos alinearlos al tiempo del sensor base
-            # Esto significa que su tiempo 0 (primer paquete) debe corresponder al tiempo
-            # del sensor base en el que ese paquete ocurrió
+            # For non-base sensors, we need to align them to the base sensor time.
+            # This means their time 0 (first packet) must correspond to the
+            # base sensor time at which that packet occurred.
             
-            # Calculamos el offset de paquetes entre este sensor y el base
-            # El tiempo base para el primer paquete de este sensor es:
+            # Calculate the packet offset between this sensor and the base one
+            # The base time for the first packet of this sensor is:
             # t_base_at_first = (data['first_packet'] - base_packet_range[0]) / target_freq
             packet_offset = data['first_packet'] - base_packet_range[0]
             time_offset = packet_offset / target_freq
             
-            # Aplicar el offset para alinear con la línea de tiempo base
+            # Apply offset to align with the base timeline
             df['time'] = df['time_local'] + time_offset
             
             print(f"  Sensor {body_name}: first packet at base time = {time_offset:.2f}s")
     
-    # --- PASO 4: COMBINAR TODOS LOS SENSORES ---
+    # --- STEP 4: COMBINE ALL SENSORS ---
     print("\nCombining sensors...")
     
     for sensor_id, data in sensor_data.items():
         body_name = data['body_name']
         df = data['dataframe'].copy()
         
-        # Recalcular tiempo con el método apropiado para cada sensor
+        # Recalculate time with the appropriate method for each sensor
         if sensor_id == base_sensor_id:
             df['time'] = (df['PacketCounter'] - data['first_packet']) / target_freq
         else:
@@ -174,12 +174,12 @@ def parse_config_dict(config):
             time_offset = packet_offset / target_freq
             df['time'] = (df['PacketCounter'] - data['first_packet']) / target_freq + time_offset
         
-        # Establecer tiempo como índice
+        # Set time as index
         df = df.set_index('time')
         df = df[~df.index.duplicated(keep='first')]
         df = df.sort_index()
         
-        # Convertir orientaciones a quaternions
+        # Convert orientations to quaternions
         if 'Quat_q0' in df.columns:
             quats = df[['Quat_q0', 'Quat_q1', 'Quat_q2', 'Quat_q3']].values
         elif 'Roll' in df.columns:
@@ -191,25 +191,25 @@ def parse_config_dict(config):
             print(f"  Warning: No orientation columns found for {body_name}, skipping.")
             continue
 
-        # Formatear como strings "w,x,y,z"
+        # Format as "w,x,y,z" strings
         quat_strings = [f"{q[0]:.6f},{q[1]:.6f},{q[2]:.6f},{q[3]:.6f}" for q in quats]
         df_col = pd.DataFrame(data=quat_strings, index=df.index, columns=[body_name])
         
-        # Unir al dataframe principal
+        # Join to main dataframe
         if aligned_data.empty:
             aligned_data = df_col
             print(f"  Added {body_name}: {len(df_col)} frames")
         else:
-            # Alinear por índice de tiempo usando merge_asof
+            # Align by time index using merge_asof
             aligned_data = aligned_data.sort_index()
             df_col = df_col.sort_index()
             
-            # Encontrar el rango de tiempo común
+            # Find the common time range
             common_start = max(aligned_data.index[0], df_col.index[0])
             common_end = min(aligned_data.index[-1], df_col.index[-1])
             
             if common_start < common_end:
-                # Filtrar al rango común antes de fusionar
+                # Filter to common range before merging
                 aligned_data = aligned_data[aligned_data.index >= common_start]
                 df_col = df_col[df_col.index >= common_start]
                 
@@ -222,24 +222,24 @@ def parse_config_dict(config):
             else:
                 print(f"  Warning: No time overlap for {body_name}, skipping")
     
-    # --- PASO 5: LIMPIEZA FINAL Y GUARDADO ---
+    # --- STEP 5: FINAL CLEANUP AND SAVING ---
     if not aligned_data.empty:
-        # Eliminar filas con NaN
+        # Drop rows with NaN
         aligned_data = aligned_data.dropna()
         
-        # Verificar que tenemos todos los sensores esperados
+        # Verify we have all expected sensors
         expected_sensors = list(sensor_mapping.values())
         missing_sensors = [s for s in expected_sensors if s not in aligned_data.columns]
         if missing_sensors:
             print(f"\nWarning: Missing sensors in final data: {missing_sensors}")
         
-        # Crear directorio de salida si no existe
+        # Create output directory if it doesn't exist
         if not os.path.exists(output_folder):
             os.makedirs(output_folder)
             
         full_path = os.path.join(output_folder, output_filename)
         
-        # Guardar archivo STO
+        # Save STO file
         with open(full_path, 'w', encoding='utf-8') as f:
             f.write(f"DataRate={target_freq}\n")
             f.write("DataType=Quaternion\n")
@@ -251,7 +251,7 @@ def parse_config_dict(config):
             for t, row in aligned_data.iterrows():
                 f.write(f"{t:.4f}\t" + "\t".join(row.values) + "\n")
         
-        # Estadísticas finales
+        # Final statistics
         duration = aligned_data.index[-1] - aligned_data.index[0]
         actual_freq = len(aligned_data) / duration if duration > 0 else 0
         

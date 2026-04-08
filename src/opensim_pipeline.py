@@ -24,7 +24,7 @@ def run_imu_placer(config_input):
     geometry_path = os.path.join(work_dir, paths['geometry_path'])
     out_dir = paths['output_folder']
 
-    # Asegurar que el directorio de salida existe
+    # Ensure the output directory exists
     os.makedirs(out_dir, exist_ok=True)
 
     if os.path.exists(geometry_path):
@@ -68,7 +68,7 @@ def run_inverse_kinematics(config_input, calibrated_model_path):
     data_path = os.path.join(work_dir, paths['output_folder'], paths['output_filename'])
     out_dir = paths['output_folder']
     
-    # Asegurar que el directorio de salida existe
+    # Ensure the output directory exists
     os.makedirs(out_dir, exist_ok=True)
     
     rot_list = os_settings['sensor_to_opensim_rot']
@@ -85,7 +85,7 @@ def run_inverse_kinematics(config_input, calibrated_model_path):
     ik_tool.setModel(model_calibrated)
     ik_tool.set_orientations_file(data_path)
     ik_tool.set_sensor_to_opensim_rotations(sensor_to_opensim_rot)
-    ik_tool.set_results_directory(out_dir)  # Ahora out_dir existe seguro
+    ik_tool.set_results_directory(out_dir)  # Now out_dir exists safely
     
     ik_tool.run()
     print(f"IK Finished. Results in directory: {out_dir}")

@@ -29,16 +29,16 @@ def run_mujoco_conversion(config_path, output_mujoco_dir=None):
     osim_path = os.path.join(work_dir, paths['model_path'])
     geometry_folder = os.path.join(work_dir, paths['geometry_path'])
     
-    # Determinar carpeta de salida
+    # Determine output folder
     if output_mujoco_dir is None:
-        # Si hay ruta configurada en YAML, usarla (puede ser absoluta o relativa)
+        # If there is a configured path in YAML, use it (can be absolute or relative)
         if 'mujoco_output_folder' in paths:
             output_mujoco_dir = paths['mujoco_output_folder']
         else:
-            # Fallback a carpeta por defecto relativa
+            # Fallback to default relative folder
             output_mujoco_dir = "mujoco_model"
     
-    # Si la ruta no es absoluta, hacerla relativa al directorio de trabajo
+    # If the path is not absolute, make it relative to the working directory
     if not os.path.isabs(output_mujoco_dir):
         output_folder = os.path.join(work_dir, output_mujoco_dir)
     else:
@@ -51,10 +51,10 @@ def run_mujoco_conversion(config_path, output_mujoco_dir=None):
         print(f"ERROR: OpenSim model not found at {osim_path}")
         return False
 
-    # Crear directorio de salida
+    # Create output directory
     os.makedirs(output_folder, exist_ok=True)
     
-    # Limpiar contenido previo si existe (pero no borrar el directorio en sí)
+    # Clean previous content if it exists (but do not delete the directory itself)
     if os.path.exists(output_folder):
         print(f"Cleaning existing MuJoCo output directory: {output_folder}")
         for item in os.listdir(output_folder):
@@ -64,7 +64,7 @@ def run_mujoco_conversion(config_path, output_mujoco_dir=None):
             elif os.path.isdir(item_path):
                 shutil.rmtree(item_path)
 
-    # Ejecutar conversión (solo kinemática)
+    # Execute conversion (kinematics only)
     print("Running O2MPipeline conversion (Kinematics only)...")
     try:
         converter = O2MPipeline(

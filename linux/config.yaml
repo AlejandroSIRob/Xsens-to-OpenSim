@@ -1,16 +1,16 @@
 # Linux Configuration
 
 paths:
-  input_folder: "/home/drims/drims_ws/simulation_projects/IRL_Dataset/Sensors_Data/MUESTRAS2-XSENS/V2/IMU"
-  output_folder: "/home/drims/drims_ws/simulation_projects/IRL_Dataset/IK_and_Movements"
+  input_folder: "/home/drims/drims_ws/simulation_projects/IRL_Dataset/Sensors_Data/8-abr-2026/V1"
+  output_folder: "/home/drims/drims_ws/simulation_projects/IRL_Dataset/IK_and_Movements/8-abr-2026/V1"
   output_filename: "kinematics_v3.sto"
   mapping_file: "sensor_mapping.json"
   model_path: "models/Rajagopal_FreeArms_LockedLegs.osim"
   geometry_path: "models/Geometry"
-  mujoco_output_folder: "/home/drims/drims_ws/simulation_projects/IRL_Dataset/MuJoCo_Biomechanical_Model"
+  mujoco_output_folder: "/home/drims/drims_ws/simulation_projects/IRL_Dataset/MuJoCo_Biomechanical_Model/8-abr-2026/V1"
 
 settings:
-  sampling_rate: 60.0
+  sampling_rate: 100.0
 
 opensim_settings:
   base_imu_label: "pelvis_imu"
