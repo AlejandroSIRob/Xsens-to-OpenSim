@@ -1,6 +1,6 @@
 """
-Módulo para recortar archivos de cinemática inversa (IK) en múltiples segmentos
-Mantiene la estructura correcta de los archivos .mot y respeta el formato OpenSim
+Module to trim Inverse Kinematics (IK) files into multiple segments.
+Maintains the correct structure of .mot files and respects the OpenSim format.
 """
 
 import os
@@ -20,48 +20,48 @@ def trim_ik_segment(
     reset_time: bool = True
 ) -> Optional[str]:
     """
-    Recorta un segmento de un archivo de cinemática inversa (.mot)
+    Trims a segment from an inverse kinematics (.mot) file.
     
     Args:
-        input_path: Ruta al archivo .mot original
-        start_time: Tiempo de inicio en segundos (float)
-        end_time: Tiempo de fin en segundos (float)
-        output_path: Ruta de salida (opcional, si no se proporciona se genera automática)
-        segment_name: Nombre personalizado para el segmento (opcional)
-        reset_time: Si True, reinicia el tiempo a 0 en el segmento recortado
+        input_path: Path to the original .mot file
+        start_time: Start time in seconds (float)
+        end_time: End time in seconds (float)
+        output_path: Output path (optional, auto-generated if not provided)
+        segment_name: Custom name for the segment (optional)
+        reset_time: If True, resets the time to 0 in the trimmed segment
     
     Returns:
-        Ruta del archivo generado o None si falló
+        Path to the generated file or None if it failed
     """
     
-    # Asegurar que los tiempos son floats
+    # Ensure times are floats
     try:
         start_time = float(start_time)
         end_time = float(end_time)
     except (ValueError, TypeError) as e:
-        print(f"    Error: No se pudieron convertir los tiempos a float: {start_time}, {end_time}")
+        print(f"    Error: Could not convert times to float: {start_time}, {end_time}")
         print(f"    Error: {e}")
         return None
     
-    # Verificar que el archivo existe
+    # Verify the file exists
     if not os.path.exists(input_path):
-        print(f"Error: El archivo {input_path} no existe")
+        print(f"Error: File {input_path} does not exist")
         return None
     
-    # Validar tiempos
+    # Validate times
     if start_time >= end_time:
-        print(f"    Error: Tiempo de inicio ({start_time:.3f}s) debe ser menor que tiempo de fin ({end_time:.3f}s)")
+        print(f"    Error: Start time ({start_time:.3f}s) must be less than end time ({end_time:.3f}s)")
         return None
     
     nombre_original = os.path.basename(input_path)
-    print(f"\n  Procesando: {nombre_original}")
-    print(f"    Segmento: {start_time:.3f}s - {end_time:.3f}s")
+    print(f"\n  Processing: {nombre_original}")
+    print(f"    Segment: {start_time:.3f}s - {end_time:.3f}s")
     
-    # Leer el archivo línea por línea para separar cabecera y datos
+    # Read the file line by line to separate header and data
     with open(input_path, 'r') as f:
         lineas = f.readlines()
     
-    # Encontrar dónde termina la cabecera
+    # Find where the header ends
     idx_endheader = None
     for i, linea in enumerate(lineas):
         if 'endheader' in linea.lower():
@@ -69,17 +69,17 @@ def trim_ik_segment(
             break
     
     if idx_endheader is None:
-        print(f"    Error: No se encontró 'endheader' en {nombre_original}")
+        print(f"    Error: 'endheader' not found in {nombre_original}")
         return None
     
-    # Separar cabecera y datos
+    # Separate header and data
     cabecera = lineas[:idx_endheader+1]
     datos_lineas = lineas[idx_endheader+1:]
     
-    # Extraer nombres de columnas
+    # Extract column names
     nombres_columnas = [col.strip() for col in datos_lineas[0].strip().split('\t')]
     
-    # Leer los datos numéricos
+    # Read numeric data
     datos = []
     for linea in datos_lineas[1:]:
         if linea.strip():
@@ -88,53 +88,53 @@ def trim_ik_segment(
                 valores_float = [float(v) for v in valores]
                 datos.append(valores_float)
             except ValueError as e:
-                print(f"    Advertencia: No se pudo convertir línea: {e}")
+                print(f"    Warning: Could not convert line: {e}")
                 continue
     
     if not datos:
-        print(f"    Error: No se pudieron leer datos numéricos")
+        print(f"    Error: Could not read numeric data")
         return None
     
-    # Crear DataFrame
+    # Create DataFrame
     df = pd.DataFrame(datos, columns=nombres_columnas)
     
-    # Verificar que la columna 'time' existe
+    # Verify 'time' column exists
     if 'time' not in df.columns:
-        print(f"    Error: No se encontró la columna 'time'")
-        print(f"    Columnas disponibles: {list(df.columns)}")
+        print(f"    Error: 'time' column not found")
+        print(f"    Available columns: {list(df.columns)}")
         return None
     
-    # Mostrar información del archivo original
+    # Show original file information
     tiempo_min = float(df['time'].min())
     tiempo_max = float(df['time'].max())
-    print(f"    Original: {len(df)} frames, rango {tiempo_min:.3f}-{tiempo_max:.3f}s")
+    print(f"    Original: {len(df)} frames, range {tiempo_min:.3f}-{tiempo_max:.3f}s")
     
-    # Verificar que el rango solicitado está dentro del rango disponible
+    # Verify the requested range is within the available range
     if start_time < tiempo_min:
-        print(f"    Advertencia: Inicio {start_time:.3f}s es anterior al inicio del archivo ({tiempo_min:.3f}s)")
-        print(f"    Ajustando a {tiempo_min:.3f}s")
+        print(f"    Warning: Start {start_time:.3f}s is before file start ({tiempo_min:.3f}s)")
+        print(f"    Adjusting to {tiempo_min:.3f}s")
         start_time = tiempo_min
     
     if end_time > tiempo_max:
-        print(f"    Advertencia: Fin {end_time:.3f}s es posterior al fin del archivo ({tiempo_max:.3f}s)")
-        print(f"    Ajustando a {tiempo_max:.3f}s")
+        print(f"    Warning: End {end_time:.3f}s is after file end ({tiempo_max:.3f}s)")
+        print(f"    Adjusting to {tiempo_max:.3f}s")
         end_time = tiempo_max
     
-    # Filtrar por tiempo
+    # Filter by time
     df_filtrado = df[(df['time'] >= start_time) & (df['time'] <= end_time)].copy()
     
     if len(df_filtrado) == 0:
-        print(f"    Error: No hay datos en el rango {start_time:.3f}-{end_time:.3f}")
+        print(f"    Error: No data in range {start_time:.3f}-{end_time:.3f}")
         return None
     
-    # Reindexar timestamps desde 0 si se solicita
+    # Reindex timestamps from 0 if requested
     if reset_time:
         df_filtrado['time'] = df_filtrado['time'] - start_time
     
     duracion = float(df_filtrado['time'].max())
-    print(f"    Segmento: {len(df_filtrado)} frames, duración {duracion:.3f}s")
+    print(f"    Segment: {len(df_filtrado)} frames, duration {duracion:.3f}s")
     
-    # Determinar nombre de archivo de salida
+    # Determine output file name
     if output_path:
         ruta_salida = output_path
     else:
@@ -142,26 +142,26 @@ def trim_ik_segment(
         nombre_base = os.path.splitext(nombre_original)[0]
         
         if segment_name:
-            # Limpiar nombre para evitar caracteres inválidos
+            # Clean name to avoid invalid characters
             clean_name = "".join(c for c in str(segment_name) if c.isalnum() or c in "._-")
             nombre_salida = f"{clean_name}.mot"
         else:
-            # Generar nombre automático
+            # Generate automatic name
             nombre_salida = f"{nombre_base}_seg_{start_time:.1f}_{end_time:.1f}.mot"
-        
+            
         ruta_salida = directorio_base / nombre_salida
     
-    # Asegurar que el directorio de salida existe
+    # Ensure output directory exists
     output_dir = os.path.dirname(ruta_salida)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
     
-    # Escribir archivo con cabecera y datos procesados
+    # Write file with header and processed data
     try:
         with open(ruta_salida, 'w') as f:
-            # Escribir cabecera
+            # Write header
             for linea in cabecera:
-                # Mantener la cabecera tal cual, pero podemos actualizar la versión si es necesario
+                # Keep header as is, but we can update the version if needed
                 if 'version=' in linea and not 'OpenSimVersion' in linea:
                     f.write("version=3\n")
                 elif 'OpenSimVersion' in linea:
@@ -184,11 +184,11 @@ def trim_ik_segment(
                         valores_formateados.append(f"{valor:.15f}")
                 f.write('\t'.join(valores_formateados) + '\n')
         
-        print(f"    ✓ Guardado: {ruta_salida}")
+        print(f"    ✓ Saved: {ruta_salida}")
         return str(ruta_salida)
         
     except Exception as e:
-        print(f"    Error al escribir archivo: {e}")
+        print(f"    Error writing file: {e}")
         return None
 
 
@@ -199,56 +199,56 @@ def trim_ik_multiple_segments(
     reset_time: bool = True
 ) -> List[str]:
     """
-    Recorta múltiples segmentos de un mismo archivo IK
+    Trims multiple segments from the same IK file.
     
     Args:
-        input_path: Ruta al archivo .mot original
-        segments: Lista de diccionarios con 'start', 'end' y opcionalmente 'name'
-        output_dir: Directorio de salida (opcional, por defecto mismo que el original)
-        reset_time: Si True, reinicia el tiempo a 0 en cada segmento
+        input_path: Path to original .mot file
+        segments: List of dictionaries with 'start', 'end' and optionally 'name'
+        output_dir: Output directory (optional, default is same as original)
+        reset_time: If True, resets time to 0 in each segment
     
     Returns:
-        Lista de rutas de archivos generados
+        List of generated file paths
     """
     
     resultados = []
     
     for i, segment in enumerate(segments):
-        # IMPORTANTE: Convertir explícitamente a float
+        # IMPORTANT: Convert explicitly to float
         try:
             start_time = float(segment.get('start', 0))
             end_time = float(segment.get('end', 0))
         except (ValueError, TypeError) as e:
-            print(f"Error: Segmento {i+1} - No se pudieron convertir los tiempos a float: {e}")
-            print(f"  Valores recibidos: start={segment.get('start')}, end={segment.get('end')}")
+            print(f"Error: Segment {i+1} - Could not convert times to float: {e}")
+            print(f"  Values received: start={segment.get('start')}, end={segment.get('end')}")
             continue
         
         name = segment.get('name', f"segment_{i+1}")
         
-        print(f"\n--- Procesando segmento {i+1} ---")
-        print(f"  Nombre: {name}")
-        print(f"  Inicio (raw): {segment.get('start')} -> float: {start_time}")
-        print(f"  Fin (raw): {segment.get('end')} -> float: {end_time}")
+        print(f"\n--- Processing segment {i+1} ---")
+        print(f"  Name: {name}")
+        print(f"  Start (raw): {segment.get('start')} -> float: {start_time}")
+        print(f"  End (raw): {segment.get('end')} -> float: {end_time}")
         
-        # Validar segmento
+        # Validate segment
         if start_time is None or end_time is None:
-            print(f"Error: Segmento {i+1} sin start_time o end_time")
+            print(f"Error: Segment {i+1} missing start_time or end_time")
             continue
         
-        # Asegurar que start_time < end_time
+        # Ensure start_time < end_time
         if start_time >= end_time:
-            print(f"Error: Segmento {i+1} tiene inicio ({start_time}) >= fin ({end_time})")
-            print(f"  Esto no está permitido.")
-            continue  # No intercambiar automáticamente, mostrar error claro
+            print(f"Error: Segment {i+1} has start ({start_time}) >= end ({end_time})")
+            print(f"  This is not allowed.")
+            continue  # Do not swap automatically, show clear error
         
-        # Determinar ruta de salida
+        # Determine output path
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
-            # Limpiar nombre para evitar caracteres inválidos
+            # Clean name to avoid invalid characters
             clean_name = "".join(c for c in str(name) if c.isalnum() or c in "._-")
             output_path = os.path.join(output_dir, f"{clean_name}.mot")
         else:
-            output_path = None  # Se generará automáticamente
+            output_path = None  # Auto-generated
         
         resultado = trim_ik_segment(
             input_path=input_path,
@@ -271,29 +271,29 @@ def trim_ik_batch(
     reset_time: bool = True
 ) -> Dict[str, List[str]]:
     """
-    Procesa un lote de archivos según configuración JSON
+    Processes a batch of files according to JSON configuration
     
-    Formato del JSON:
+    JSON format:
     {
-        "carpeta_raiz": "/ruta/base",  # Opcional
+        "carpeta_raiz": "/ruta/base",  # Optional
         "archivos": [
             {
                 "ruta": "ruta/archivo1.mot",
                 "segmentos": [
-                    {"start": 0.5, "end": 2.5, "name": "movimiento1"},
-                    {"start": 3.0, "end": 5.0, "name": "movimiento2"}
+                    {"start": 0.5, "end": 2.5, "name": "movement1"},
+                    {"start": 3.0, "end": 5.0, "name": "movement2"}
                 ]
             }
         ]
     }
     
     Args:
-        config_path: Ruta al archivo JSON de configuración
-        output_dir: Directorio base de salida (opcional)
-        reset_time: Si True, reinicia el tiempo a 0 en cada segmento
+        config_path: Path to JSON config file
+        output_dir: Base output directory (optional)
+        reset_time: If True, resets time to 0 in each segment
     
     Returns:
-        Diccionario con rutas de archivos generados por archivo original
+        Dictionary with generated file paths by original file
     """
     
     with open(config_path, 'r', encoding='utf-8') as f:
@@ -303,49 +303,49 @@ def trim_ik_batch(
     resultados = {}
     
     print(f"\n{'='*60}")
-    print("PROCESANDO LOTE DE ARCHIVOS IK")
+    print("PROCESSING BATCH OF IK FILES")
     print(f"{'='*60}\n")
     
     for idx, item in enumerate(config['archivos'], 1):
-        # Determinar la ruta completa del archivo
+        # Determine full file path
         if 'ruta' in item:
             ruta_archivo = item['ruta']
         elif 'nombre' in item and carpeta_raiz:
             ruta_archivo = os.path.join(carpeta_raiz, item['nombre'])
         else:
-            print(f"Error: Elemento sin ruta válida: {item}")
+            print(f"Error: Element without valid path: {item}")
             continue
         
-        # Verificar que el archivo existe
+        # Verify file exists
         if not os.path.exists(ruta_archivo):
-            print(f"Advertencia: Archivo no encontrado: {ruta_archivo}")
+            print(f"Warning: File not found: {ruta_archivo}")
             continue
         
-        # Obtener segmentos
+        # Get segments
         segmentos = item.get('segmentos', [])
         if not segmentos:
-            print(f"Advertencia: No hay segmentos definidos para {ruta_archivo}")
+            print(f"Warning: No segments defined for {ruta_archivo}")
             continue
         
-        print(f"\n[{idx}] Archivo: {os.path.basename(ruta_archivo)}")
-        print(f"    Segmentos: {len(segmentos)}")
+        print(f"\n[{idx}] File: {os.path.basename(ruta_archivo)}")
+        print(f"    Segments: {len(segmentos)}")
         
-        # Mostrar segmentos con sus tipos
+        # Show segments with types
         for s in segmentos:
             start_raw = s.get('start', '?')
             end_raw = s.get('end', '?')
-            name = s.get('name', 'sin_nombre')
+            name = s.get('name', 'unnamed')
             print(f"      - {name}: {start_raw} (type: {type(start_raw).__name__}) - {end_raw} (type: {type(end_raw).__name__})")
         
-        # Determinar directorio de salida para este archivo
+        # Determine output directory for this file
         if output_dir:
-            # Crear subdirectorio basado en el nombre del archivo
+            # Create subdirectory based on filename
             nombre_base = os.path.splitext(os.path.basename(ruta_archivo))[0]
             out_dir_archivo = os.path.join(output_dir, nombre_base)
         else:
             out_dir_archivo = None
         
-        # Procesar segmentos
+        # Process segments
         resultados[ruta_archivo] = trim_ik_multiple_segments(
             input_path=ruta_archivo,
             segments=segmentos,
@@ -353,14 +353,14 @@ def trim_ik_batch(
             reset_time=reset_time
         )
     
-    # Resumen final
+    # Final summary
     print(f"\n{'='*60}")
-    print("RESUMEN DE PROCESAMIENTO")
+    print("PROCESSING SUMMARY")
     print(f"{'='*60}")
     total_archivos = len([v for v in resultados.values() if v])
     total_segmentos = sum(len(v) for v in resultados.values())
-    print(f"Archivos procesados: {total_archivos}/{len(config['archivos'])}")
-    print(f"Segmentos generados: {total_segmentos}")
+    print(f"Files processed: {total_archivos}/{len(config['archivos'])}")
+    print(f"Segments generated: {total_segmentos}")
     
     return resultados
 
@@ -373,78 +373,78 @@ def generate_config_from_folder(
     output_json: str = "trim_config.json"
 ) -> Optional[str]:
     """
-    Genera automáticamente un archivo JSON de configuración a partir de una carpeta
+    Automatically generates a JSON configuration file from a folder
     
     Args:
-        folder_path: Carpeta donde buscar archivos .mot
-        start_time: Tiempo de inicio por defecto
-        end_time: Tiempo de fin por defecto
-        pattern: Patrón de búsqueda de archivos
-        output_json: Ruta del archivo JSON de salida
+        folder_path: Folder to search for .mot files
+        start_time: Default start time
+        end_time: Default end time
+        pattern: File search pattern
+        output_json: Output JSON file path
     
     Returns:
-        Ruta del archivo JSON generado o None si falló
+        Path of the generated JSON file or None if failed
     """
     
     folder = Path(folder_path)
     if not folder.exists():
-        print(f"Error: La carpeta {folder_path} no existe")
+        print(f"Error: Folder {folder_path} does not exist")
         return None
     
-    # Buscar archivos que coincidan con el patrón
+    # Search for files matching the pattern
     archivos = list(folder.rglob(pattern))
     
     if not archivos:
-        print(f"No se encontraron archivos con patrón '{pattern}' en {folder_path}")
+        print(f"No files found with pattern '{pattern}' in {folder_path}")
         return None
     
-    # Crear configuración
+    # Create configuration
     config = {
         "carpeta_raiz": str(folder),
         "archivos": []
     }
     
     for archivo in archivos:
-        # Obtener ruta relativa
+        # Get relative path
         try:
             ruta_relativa = archivo.relative_to(folder)
         except ValueError:
             ruta_relativa = archivo
         
-        # Generar nombre de segmento basado en el nombre del archivo
+        # Generate segment name based on file name
         nombre_base = archivo.stem
         
         config["archivos"].append({
             "nombre": str(ruta_relativa),
             "segmentos": [
                 {
-                    "start": float(start_time),  # Asegurar que es float
-                    "end": float(end_time),      # Asegurar que es float
+                    "start": float(start_time),  # Ensure it is a float
+                    "end": float(end_time),      # Ensure it is a float
                     "name": nombre_base
                 }
             ]
         })
     
-    # Guardar JSON
+    # Save JSON
     with open(output_json, 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=4, ensure_ascii=False)
     
-    print(f"✓ Archivo JSON generado: {output_json}")
-    print(f"  Archivos encontrados: {len(archivos)}")
-    print(f"  Tiempos por defecto: {start_time}s - {end_time}s")
+    print(f"✓ JSON file generated: {output_json}")
+    print(f"  Files found: {len(archivos)}")
+    print(f"  Default timings: {start_time}s - {end_time}s")
     
     return output_json
 
 
 def get_file_info(file_path: str) -> Dict:
     """
-    Obtiene información de un archivo IK sin cargarlo completamente
+    Gets information from an IK file without fully loading it
     
     Args:
-        file_path: Ruta al archivo .mot
+        file_path: Path to .mot file
     
     Returns:
-        Diccionario con información del archivo
+        Dictionary with file information
     """
     if not os.path.exists(file_path):
         return {'error': 'File not found'}
@@ -453,7 +453,7 @@ def get_file_info(file_path: str) -> Dict:
         with open(file_path, 'r') as f:
             lineas = f.readlines()
         
-        # Encontrar cabecera
+        # Find header
         idx_endheader = None
         for i, linea in enumerate(lineas):
             if 'endheader' in linea.lower():
@@ -463,11 +463,11 @@ def get_file_info(file_path: str) -> Dict:
         if idx_endheader is None:
             return {'error': 'No endheader found'}
         
-        # Extraer nombres de columnas
+        # Extract column names
         datos_lineas = lineas[idx_endheader+1:]
         nombres_columnas = [col.strip() for col in datos_lineas[0].strip().split('\t')]
         
-        # Leer primera y última fila de datos
+        # Read first and last row of data
         datos = []
         for linea in datos_lineas[1:]:
             if linea.strip():
@@ -476,17 +476,17 @@ def get_file_info(file_path: str) -> Dict:
                     datos.append([float(v) for v in valores])
                 except:
                     continue
-                if len(datos) >= 2:  # Solo necesitamos primero y último
+                if len(datos) >= 2:  # Only need first and last
                     pass
         
         if not datos:
             return {'error': 'No data found'}
         
-        # Obtener primera y última fila
+        # Get first and last row
         primera_fila = datos[0]
         ultima_fila = datos[-1]
         
-        # Encontrar índice de la columna time
+        # Find index of the time column
         time_idx = None
         for i, col in enumerate(nombres_columnas):
             if col.strip() == 'time':
@@ -503,7 +503,7 @@ def get_file_info(file_path: str) -> Dict:
             'time_start': primera_fila[time_idx],
             'time_end': ultima_fila[time_idx],
             'duration': ultima_fila[time_idx] - primera_fila[time_idx],
-            'columns': nombres_columnas[:10]  # Solo primeras 10 columnas para no saturar
+            'columns': nombres_columnas[:10]  # Only first 10 columns to avoid clutter
         }
         
     except Exception as e:
@@ -511,63 +511,63 @@ def get_file_info(file_path: str) -> Dict:
 
 
 def main():
-    """Función principal para uso desde línea de comandos"""
+    """Main function for command line usage"""
     import argparse
     
     parser = argparse.ArgumentParser(
-        description='Recortador de archivos de cinemática inversa (IK)',
+        description='Inverse Kinematics (IK) File Trimmer',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Ejemplos de uso:
-  # Generar configuración desde carpeta
-  python -m src.ik_trimmer --generate-config /ruta/carpeta --output config.json
+Usage examples:
+  # Generate config from folder
+  python -m src.ik_trimmer --generate-config /path/to/folder --output config.json
   
-  # Procesar desde configuración
-  python -m src.ik_trimmer --config config.json --output-dir /ruta/salida
+  # Process from configuration
+  python -m src.ik_trimmer --config config.json --output-dir /output/path
   
-  # Procesar archivo individual con múltiples segmentos
-  python -m src.ik_trimmer --archivo archivo.mot --segmentos "0.5-2.5:mov1" "3.0-5.0:mov2"
+  # Process single file with multiple segments
+  python -m src.ik_trimmer --archivo file.mot --segmentos "0.5-2.5:mov1" "3.0-5.0:mov2"
   
-  # Obtener información del archivo
-  python -m src.ik_trimmer --info archivo.mot
+  # Get file info
+  python -m src.ik_trimmer --info file.mot
         """
     )
     
-    parser.add_argument('--config', '-c', type=str, help='Archivo JSON de configuración')
-    parser.add_argument('--archivo', '-a', type=str, help='Archivo específico a procesar')
+    parser.add_argument('--config', '-c', type=str, help='JSON configuration file')
+    parser.add_argument('--archivo', '-a', type=str, help='Specific file to process')
     parser.add_argument('--segmentos', '-s', nargs='+', 
-                       help='Segmentos en formato "inicio-fin:nombre" (ej: "0.5-2.5:movimiento")')
+                       help='Segments in "start-end:name" format (e.g., "0.5-2.5:movement")')
     parser.add_argument('--generate-config', '-g', type=str, 
-                       help='Generar configuración desde carpeta')
-    parser.add_argument('--output-dir', '-o', type=str, help='Directorio de salida')
+                       help='Generate configuration from folder')
+    parser.add_argument('--output-dir', '-o', type=str, help='Output directory')
     parser.add_argument('--output-json', type=str, default='trim_config.json',
-                       help='Archivo JSON de salida para --generate-config')
+                       help='Output JSON file for --generate-config')
     parser.add_argument('--start', type=float, default=0.0,
-                       help='Tiempo de inicio por defecto (para --generate-config)')
+                       help='Default start time (for --generate-config)')
     parser.add_argument('--end', type=float, default=1.0,
-                       help='Tiempo de fin por defecto (para --generate-config)')
+                       help='Default end time (for --generate-config)')
     parser.add_argument('--pattern', type=str, default='*.mot',
-                       help='Patrón de búsqueda (para --generate-config)')
+                       help='Search pattern (for --generate-config)')
     parser.add_argument('--no-reset-time', action='store_true',
-                       help='No reiniciar el tiempo a 0 en los segmentos')
-    parser.add_argument('--info', type=str, help='Mostrar información del archivo')
+                       help='Do not reset time to 0 in segments')
+    parser.add_argument('--info', type=str, help='Show file information')
     
     args = parser.parse_args()
     
     reset_time = not args.no_reset_time
     
     if args.info:
-        # Mostrar información del archivo
+        # Show file information
         info = get_file_info(args.info)
         print("\n" + "="*60)
-        print("INFORMACIÓN DEL ARCHIVO IK")
+        print("IK FILE INFORMATION")
         print("="*60)
         for key, value in info.items():
             print(f"  {key}: {value}")
         print("="*60)
     
     elif args.generate_config:
-        # Generar configuración desde carpeta
+        # Generate configuration from folder
         generate_config_from_folder(
             folder_path=args.generate_config,
             start_time=args.start,
@@ -577,7 +577,7 @@ Ejemplos de uso:
         )
     
     elif args.config:
-        # Procesar desde archivo JSON
+        # Process from JSON file
         trim_ik_batch(
             config_path=args.config,
             output_dir=args.output_dir,
@@ -585,10 +585,10 @@ Ejemplos de uso:
         )
     
     elif args.archivo and args.segmentos:
-        # Procesar archivo individual con segmentos
+        # Process individual file with segments
         segments = []
         for seg in args.segmentos:
-            # Parsear formato "inicio-fin:nombre"
+            # Parse format "start-end:name"
             if ':' in seg:
                 tiempo_part, nombre = seg.rsplit(':', 1)
             else:
@@ -600,15 +600,15 @@ Ejemplos de uso:
                     start = float(start_str)
                     end = float(end_str)
                 except ValueError:
-                    print(f"Error: No se pudieron convertir los tiempos en: {seg}")
+                    print(f"Error: Could not convert times in: {seg}")
                     continue
             else:
-                print(f"Error: Formato inválido para segmento: {seg}")
+                print(f"Error: Invalid format for segment: {seg}")
                 continue
             
-            # Asegurar que start < end
+            # Ensure start < end
             if start > end:
-                print(f"Advertencia: Inicio ({start}) > fin ({end}) en segmento '{nombre}', intercambiando...")
+                print(f"Warning: Start ({start}) > end ({end}) in segment '{nombre}', swapping...")
                 start, end = end, start
             
             segments.append({

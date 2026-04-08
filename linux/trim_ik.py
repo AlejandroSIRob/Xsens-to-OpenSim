@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """
-Script de entrada para recortar archivos de cinemática inversa
-Ejecutar desde la raíz del repositorio: python linux/trim_ik.py [opciones]
+Entry script to trim inverse kinematics files.
+Run from the repository root: python linux/trim_ik.py [options]
 """
 
 import sys
 import os
 
-# Añadir el directorio padre al path
+# Add the parent directory to the path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.ik_trimmer import main
 
 if __name__ == "__main__":
-    # Verificar que estamos en el directorio correcto
+    # Verify we are in the correct directory
     if not os.path.exists("linux/config.yaml"):
-        print("Advertencia: No se encuentra linux/config.yaml")
-        print("Asegúrate de ejecutar este script desde la raíz del repositorio")
+        print("Warning: linux/config.yaml not found")
+        print("Make sure to run this script from the root of the repository")
     
     main()

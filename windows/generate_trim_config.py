@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Script para generar automáticamente configuración de recorte desde una carpeta (Windows)
-Ejecutar desde la raíz del repositorio: python windows/generate_trim_config.py C:\ruta\carpeta
+Script to automatically generate a trim configuration from a folder (Windows).
+Run from the repository root: python windows\\generate_trim_config.py C:\\path\\to\\folder
 """
 
 import sys
@@ -14,33 +14,33 @@ from src.ik_trimmer import generate_config_from_folder
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Generar configuración de recorte desde carpeta',
+        description='Generate trim configuration from a folder of .mot files',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Ejemplos:
-  python windows/generate_trim_config.py C:\\ruta\\carpeta --output config.json
-  python windows/generate_trim_config.py C:\\ruta\\carpeta --start 0.5 --end 2.5
+Examples:
+  python windows\\generate_trim_config.py C:\\path\\to\\folder --output config.json
+  python windows\\generate_trim_config.py C:\\path\\to\\folder --start 0.5 --end 2.5
         """
     )
-    parser.add_argument('carpeta', type=str, help='Carpeta con archivos .mot')
+    parser.add_argument('folder', type=str, help='Folder containing .mot files')
     parser.add_argument('--output', '-o', type=str, default='trim_config.json',
-                       help='Archivo JSON de salida')
+                       help='Output JSON file path')
     parser.add_argument('--start', '-s', type=float, default=0.0,
-                       help='Tiempo de inicio por defecto (segundos)')
+                       help='Default start time (seconds)')
     parser.add_argument('--end', '-e', type=float, default=1.0,
-                       help='Tiempo de fin por defecto (segundos)')
+                       help='Default end time (seconds)')
     parser.add_argument('--pattern', '-p', type=str, default='*.mot',
-                       help='Patrón de búsqueda de archivos')
+                       help='File search pattern')
     
     args = parser.parse_args()
     
-    # Verificar que la carpeta existe
-    if not os.path.exists(args.carpeta):
-        print(f"Error: La carpeta {args.carpeta} no existe")
+    # Verify the folder exists
+    if not os.path.exists(args.folder):
+        print(f"Error: Folder {args.folder} does not exist")
         sys.exit(1)
     
     result = generate_config_from_folder(
-        folder_path=args.carpeta,
+        folder_path=args.folder,
         start_time=args.start,
         end_time=args.end,
         pattern=args.pattern,
@@ -48,9 +48,9 @@ Ejemplos:
     )
     
     if result:
-        print(f"\nConfiguración guardada en: {result}")
+        print(f"\nConfiguration saved to: {result}")
     else:
-        print("\nError al generar configuración")
+        print("\nError generating configuration")
         sys.exit(1)
 
 if __name__ == "__main__":
